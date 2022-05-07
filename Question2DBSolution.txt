@@ -1,0 +1,103 @@
+
+/****** Object:  UserDefinedTableType [dbo].[TradeList]    Script Date: 07-05-2022 05:19:23 PM ******/
+-- Table type creation script
+CREATE TYPE [dbo].[TradeList] AS TABLE(
+	[ID] [int] IDENTITY(1,1) NOT NULL,
+	[TradeValue] [decimal](18, 2) NULL,
+	[ClientSector] [varchar](50) NULL
+)
+GO
+
+/****** Object:  Table [dbo].[TradeCategories]    Script Date: 07-05-2022 05:21:22 PM ******/
+-- Table creation script
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[TradeCategories](
+	[ID] [int] IDENTITY(1,1) NOT NULL,
+	[TradeValue] [decimal](18, 2) NULL,
+	[ClientSector] [varchar](50) NULL,
+	[TradeCategory] [varchar](100) NULL
+) ON [PRIMARY]
+GO
+
+
+/****** Object:  StoredProcedure [dbo].[usp_InserTradeDetail]    Script Date: 07-05-2022 05:22:56 PM ******/
+-- Create SP script
+SET ansi_nulls ON
+
+go
+
+SET quoted_identifier ON
+
+go
+
+CREATE PROC [dbo].[Usp_insertradedetail] @TradeList TRADELIST readonly
+AS
+  BEGIN
+
+      BEGIN try
+          BEGIN TRANSACTION
+
+          INSERT INTO tradecategories
+                      (tradevalue,
+                       clientsector)
+          SELECT tradevalue,
+                 clientsector
+          FROM   @TradeList
+
+          UPDATE tc
+          SET    tc.tradecategory = CASE
+                                      WHEN tc.tradevalue < 1000000
+                                           AND tc.clientsector = 'Public' THEN
+                                      'LOWRISK'
+                                      WHEN tc.tradevalue > 1000000
+                                           AND tc.clientsector = 'Public' THEN
+                                      'MEDIUMRISK'
+                                      WHEN tc.tradevalue > 1000000
+                                           AND tc.clientsector = 'Private' THEN
+                                      'HIGHRISK'
+                                    END
+          FROM   tradecategories tc
+
+          SELECT *
+          FROM   tradecategories
+
+          COMMIT TRANSACTION
+      END try
+
+      BEGIN catch
+          ROLLBACK TRANSACTION
+
+          SELECT Error_number(),
+                 Error_message(),
+                 Error_line()
+      END catch
+  END
+
+go
+
+
+---To pass the input parameter and verify result
+DECLARE @TradeList TRADELIST
+
+INSERT INTO @TradeList
+            (tradevalue,
+             clientsector)
+SELECT 2000000,
+       'Private'
+UNION ALL
+SELECT 400000,
+       'Public'
+UNION ALL
+SELECT 500000,
+       'Public'
+UNION ALL
+SELECT 3000000,
+       'Public'
+
+EXEC Usp_insertradedetail
+  @TradeList 
